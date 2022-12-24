@@ -1,6 +1,7 @@
 const path = require("path");
 
 const express = require("express");
+const bodyParser = require("body-parser");
 const mongoose = require("mongoose");
 const multer = require("multer");
 
@@ -13,15 +14,27 @@ const fileStorage = multer.diskStorage({
     cb(null, "images");
   },
   filename: (req, file, cb) => {
-    cb(null, `${new Date().toISOString()}-${file.originalname}`);
+    cb(null, new Date().toISOString() + "-" + file.originalname);
   },
 });
 
-const fileFilter = (req, file, cb) => {};
+const fileFilter = (req, file, cb) => {
+  if (
+    file.mimetype === "image/png" ||
+    file.mimetype === "image/jpg" ||
+    file.mimetype === "image/jpeg"
+  ) {
+    cb(null, true);
+  } else {
+    cb(null, false);
+  }
+};
 
 // app.use(bodyParser.urlencoded()); // x-www-form-urlencoded <form>
-app.use(express.json()); // application/json
-
+app.use(bodyParser.json()); // application/json
+app.use(
+  multer({ storage: fileStorage, fileFilter: fileFilter }).single("image")
+);
 app.use("/images", express.static(path.join(__dirname, "images")));
 
 app.use((req, res, next) => {
@@ -40,16 +53,14 @@ app.use((error, req, res, next) => {
   console.log(error);
   const status = error.statusCode || 500;
   const message = error.message;
-  res.status(status).json({ message });
+  res.status(status).json({ message: message });
 });
 
 mongoose
   .connect(
-    "mongodb+srv://Ryu:OHY2n7uzgjTkhqR2@shop.7gk0cbz.mongodb.net/messages?retryWrites=true&w=majority"
+    "mongodb+srv://maximilian:9u4biljMQc4jjqbe@cluster0-ntrwp.mongodb.net/messages?retryWrites=true"
   )
   .then((result) => {
     app.listen(8080);
   })
-  .catch((err) => {
-    console.log(err);
-  });
+  .catch((err) => console.log(err));
