@@ -53,7 +53,7 @@ exports.createPost = async (req, res, next) => {
   try {
     await post.save();
 
-    const user = User.findById(req.userId);
+    const user = await User.findById(req.userId);
 
     user.posts.push(post);
 
