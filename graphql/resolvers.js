@@ -71,6 +71,11 @@ module.exports = {
     };
   },
   createPost: async function ({ postInput }, req) {
+    if (!req.isAuth) {
+      const error = new Error("Not authenticated!");
+      error.code = 401;
+      throw error;
+    }
     const { title, content, imageUrl } = postInput;
     const errors = [];
     if (validator.isEmpty(title) || !validator.isLength(title, { min: 5 })) {
@@ -88,18 +93,61 @@ module.exports = {
       error.code = 422;
       throw error;
     }
+
+    const user = await User.findById(req.userId);
+    if (!user) {
+      const error = new Error("Invalid user.");
+      error.code = 401;
+      throw error;
+    }
+
     const post = new Post({
       title,
       content,
       imageUrl,
+      creator: user,
     });
     const createdPost = await post.save();
-    // add post to user's posts
+
+    user.posts.push(createdPost);
+    await user.save();
+
     return {
       ...createdPost._doc,
       _id: createdPost._id.toString(),
       createdAt: createdPost.createdAt.toISOString(),
       updatedAt: createdPost.updatedAt.toISOString(),
+    };
+  },
+  posts: async function ({ page }, req) {
+    if (!req.isAuth) {
+      const error = new Error("Not authenticated!");
+      error.code = 401;
+      throw error;
+    }
+    let currentPage;
+    if (!page) {
+      currentPage = 1;
+    } else {
+      currentPage = page;
+    }
+
+    const perPage = 2;
+    const totalPosts = await Post.find().countDocuments();
+    const posts = await Post.find()
+      .sort({ createdAt: -1 })
+      .skip((currentPage - 1) * perPage)
+      .limit(perPage)
+      .populate("creator");
+
+    return {
+      posts: posts.map((post) => ({
+        ...post._doc,
+        _id: post._id.toString(),
+        createdAt: post.createdAt.toISOString(),
+        updatedAt: post.updatedAt.toISOString(),
+      })),
+      totalPosts,
     };
   },
 };
